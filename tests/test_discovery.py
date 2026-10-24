@@ -30,7 +30,7 @@ def test_topic_names():
     assert discovery_topic("aabbcc001122", "radon_sta") == (
         "homeassistant/sensor/blemqtt_aabbcc001122/radon_sta/config"
     )
-    assert DISCOVERY_FILTER == "homeassistant/sensor/blemqtt_+/+/config"
+    assert DISCOVERY_FILTER == "homeassistant/sensor/+/+/config"
 
 
 def test_one_message_per_reading():
@@ -92,3 +92,10 @@ def test_node_id_from_discovery_topic():
     assert node_id_from_discovery_topic(topic) == "aabbcc001122"
     assert node_id_from_discovery_topic("homeassistant/sensor/other_thing/x/config") is None
     assert node_id_from_discovery_topic("homeassistant/light/blemqtt_aa/x/config") is None
+
+
+def test_discovery_filter_is_a_valid_mqtt_subscription():
+    import paho.mqtt.client as mqtt
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.subscribe(DISCOVERY_FILTER)  # raises ValueError for an invalid filter

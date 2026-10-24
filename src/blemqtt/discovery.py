@@ -6,7 +6,7 @@ from blemqtt.config import SensorConfig
 from blemqtt.drivers.base import Driver
 
 SERVICE_STATUS_TOPIC = "blemqtt/status"
-DISCOVERY_FILTER = "homeassistant/sensor/blemqtt_+/+/config"
+DISCOVERY_FILTER = "homeassistant/sensor/+/+/config"
 _DISCOVERY_TOPIC_RE = re.compile(r"^homeassistant/sensor/blemqtt_([^/]+)/[^/]+/config$")
 
 

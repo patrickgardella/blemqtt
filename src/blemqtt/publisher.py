@@ -32,6 +32,8 @@ class Publisher:
         self._known_nodes = {sensor.node_id for sensor, _ in sensors}
         self._clear_wait = clear_wait
         self._timer: threading.Timer | None = None
+        self._last: dict[str, str] = {}  # latest state/availability per topic, replayed on reconnect
+        self._last_lock = threading.Lock()
         self._client = client or mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
     def start(self) -> None:
@@ -45,11 +47,11 @@ class Publisher:
         c.loop_start()
 
     def publish_readings(self, sensor: SensorConfig, readings: Readings) -> None:
-        self._publish(state_topic(sensor.node_id), json.dumps(readings))
-        self._publish(availability_topic(sensor.node_id), "online")
+        self._publish_remembered(state_topic(sensor.node_id), json.dumps(readings))
+        self._publish_remembered(availability_topic(sensor.node_id), "online")
 
     def mark_unavailable(self, sensor: SensorConfig) -> None:
-        self._publish(availability_topic(sensor.node_id), "offline")
+        self._publish_remembered(availability_topic(sensor.node_id), "offline")
 
     def stop(self) -> None:
         if self._timer:
@@ -57,6 +59,11 @@ class Publisher:
         self._publish(SERVICE_STATUS_TOPIC, "offline").wait_for_publish(timeout=5)
         self._client.disconnect()
         self._client.loop_stop()
+
+    def _publish_remembered(self, topic: str, payload: str) -> None:
+        with self._last_lock:
+            self._last[topic] = payload
+        self._publish(topic, payload)
 
     def _publish(self, topic: str, payload: str):
         return self._client.publish(topic, payload, qos=1, retain=True)
@@ -70,6 +77,10 @@ class Publisher:
         for sensor, driver in self._sensors:
             for topic, payload in discovery_messages(sensor, driver):
                 self._publish(topic, payload)
+        with self._last_lock:
+            remembered = list(self._last.items())
+        for topic, payload in remembered:
+            self._publish(topic, payload)
         client.subscribe(DISCOVERY_FILTER)
         if self._timer:
             self._timer.cancel()

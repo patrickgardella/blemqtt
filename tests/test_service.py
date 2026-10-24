@@ -108,3 +108,18 @@ async def test_run_starts_polls_and_stops_cleanly(monkeypatch):
     )
     assert pub.events[0] == "start" and pub.events[-1] == "stop"
     assert ("publish", "A", {"x": 1.0}) in pub.events
+
+
+class HangingDriver(FakeDriver):
+    async def read(self, address, timeout):
+        await asyncio.sleep(3600)
+
+
+async def test_hung_read_is_abandoned_and_next_sensor_still_runs(caplog):
+    pub, failures = FakePublisher(), {}
+    sensors = [(A, HangingDriver(None)), (B, FakeDriver({"x": 1.0}))]
+    with caplog.at_level(logging.WARNING):
+        await asyncio.wait_for(poll_once(sensors, pub, failures, threshold=3, read_timeout=0.05), 5)
+    assert failures[A.node_id] == 1
+    assert ("publish", "B", {"x": 1.0}) in pub.events
+    assert "reading A failed" in caplog.text

@@ -163,3 +163,22 @@ def test_password_never_logged_or_in_repr(publisher, client, caplog):
     assert "s3cret-pw" not in caplog.text
     assert "s3cret-pw" not in repr(publisher)
     assert "s3cret-pw" not in repr(SETTINGS)
+
+
+def test_reconnect_replays_last_state_and_availability(publisher, client):
+    publisher.start()
+    connect(client)
+    publisher.publish_readings(SENSOR, {"radon_sta": 0.7})
+    client.published.clear()
+    connect(client)  # broker restarted and lost its retained messages
+    assert retained(client, "blemqtt/aabbcc001122/state")[-1][1] == '{"radon_sta": 0.7}'
+    assert retained(client, "blemqtt/aabbcc001122/availability")[-1][1] == "online"
+
+
+def test_reconnect_replays_unavailable_after_mark_unavailable(publisher, client):
+    publisher.start()
+    connect(client)
+    publisher.mark_unavailable(SENSOR)
+    client.published.clear()
+    connect(client)
+    assert retained(client, "blemqtt/aabbcc001122/availability")[-1][1] == "offline"

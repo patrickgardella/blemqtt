@@ -22,11 +22,12 @@ async def poll_once(
     for sensor, driver in sensors:
         try:
             async with ble_lock(lock_timeout):
-                readings = await driver.read(sensor.address, read_timeout)
+                # bleak bounds connect and each read, not the disconnect; cap the whole read
+                readings = await asyncio.wait_for(driver.read(sensor.address, read_timeout), read_timeout * 2)
         except Exception as e:
             count = failures.get(sensor.node_id, 0) + 1
             failures[sensor.node_id] = count
-            log.warning("reading %s failed (%d in a row): %s", sensor.name, count, e)
+            log.warning("reading %s failed (%d in a row): %s", sensor.name, count, e or type(e).__name__)
             if count == threshold:
                 publisher.mark_unavailable(sensor)
             continue

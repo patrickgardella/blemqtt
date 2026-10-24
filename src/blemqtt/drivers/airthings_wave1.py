@@ -16,6 +16,8 @@ CHAR_UUIDS = (
 )
 _FORMAT = struct.Struct("<hHHH")
 _INVALID_RADON = 0xFFFF
+ATTEMPTS = 3
+RETRY_DELAY = 2.0
 _BQ_PER_M3_PER_PCI_L = 37  # 1 pCi/L = 37 Bq/m³
 
 
@@ -42,13 +44,27 @@ class AirthingsWave1(Driver):
         }
 
     async def read(self, address: str, timeout: float) -> Readings:
-        try:
-            async with BleakClient(address, timeout=timeout) as client:
-                async with asyncio.timeout(timeout):
-                    chunks = [bytes(await client.read_gatt_char(uuid)) for uuid in CHAR_UUIDS]
-        except (BleakError, asyncio.TimeoutError, OSError) as e:
-            raise ReadError(f"{address}: {e or type(e).__name__}") from e
-        return self.parse(b"".join(chunks))
+        """Read all characteristics, retrying a flaky connection within the `timeout` budget."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        last_error: Exception | None = None
+        for attempt in range(ATTEMPTS):
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            if attempt:
+                await asyncio.sleep(RETRY_DELAY)
+            try:
+                return self.parse(await self._read_once(address, remaining))
+            except (BleakError, asyncio.TimeoutError, OSError) as e:
+                last_error = e
+        detail = str(last_error) or type(last_error).__name__ if last_error else "timed out"
+        raise ReadError(f"{address}: {detail}") from last_error
+
+    async def _read_once(self, address: str, timeout: float) -> bytes:
+        async with BleakClient(address, timeout=timeout) as client:
+            async with asyncio.timeout(timeout):
+                return b"".join([bytes(await client.read_gatt_char(uuid)) for uuid in CHAR_UUIDS])
 
 
 def _radon(raw: int) -> float | None:

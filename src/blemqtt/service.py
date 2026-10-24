@@ -16,7 +16,7 @@ async def poll_once(
     publisher: Publisher,
     failures: dict[str, int],
     threshold: int,
-    read_timeout: float = 30.0,
+    read_timeout: float = 60.0,
     lock_timeout: float = 60.0,
 ) -> None:
     for sensor, driver in sensors:
@@ -27,7 +27,7 @@ async def poll_once(
         except Exception as e:
             count = failures.get(sensor.node_id, 0) + 1
             failures[sensor.node_id] = count
-            log.warning("reading %s failed (%d in a row): %s", sensor.name, count, e or type(e).__name__)
+            log.warning("reading %s failed (%d in a row): %s", sensor.name, count, str(e) or type(e).__name__)
             if count == threshold:
                 publisher.mark_unavailable(sensor)
             continue

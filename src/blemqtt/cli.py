@@ -12,7 +12,7 @@ from blemqtt.config import ConfigError, load_app_config
 from blemqtt.drivers import get_driver
 from blemqtt.drivers.base import ParseError, ReadError
 
-READ_TIMEOUT = 30.0
+READ_TIMEOUT = 60.0
 
 
 def main(argv: list[str] | None = None) -> int:

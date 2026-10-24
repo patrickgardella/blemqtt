@@ -1,0 +1,13 @@
+# Copy to config.toml and edit. Broker credentials live in .env, not here.
+
+# Seconds between readings. The Wave's short-term radon value changes about hourly.
+interval_seconds = 300
+
+# Consecutive failed reads before a sensor is shown as unavailable in Home Assistant.
+failure_threshold = 3
+
+# Find the address with: blemqtt scan
+# [[sensors]]
+# name = "Basement Radon"
+# address = "AA:BB:CC:00:11:22"
+# driver = "airthings_wave1"

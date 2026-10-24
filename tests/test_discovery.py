@@ -41,7 +41,7 @@ def test_radon_message_contents():
     m = messages()["homeassistant/sensor/blemqtt_aabbcc001122/radon_sta/config"]
     assert m["unique_id"] == "blemqtt_aabbcc001122_radon_sta"
     assert m["state_topic"] == "blemqtt/aabbcc001122/state"
-    assert m["unit_of_measurement"] == "Bq/m³"
+    assert m["unit_of_measurement"] == "pCi/L"
     assert m["state_class"] == "measurement"
     assert m["device_class"] == "radon"
 

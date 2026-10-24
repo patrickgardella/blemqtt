@@ -14,8 +14,8 @@ PAYLOAD = struct.pack("<hHHH", 2150, 4500, 45, 50)
 
 def test_parse_real_device_bytes():
     assert AirthingsWave1().parse(REAL_PAYLOAD) == {
-        "radon_sta": 26.0,
-        "radon_lta": 34.0,
+        "radon_sta": 0.7,
+        "radon_lta": 0.92,
         "temperature": 19.6,
         "humidity": 64.0,
     }
@@ -23,11 +23,17 @@ def test_parse_real_device_bytes():
 
 def test_parse_valid_payload():
     assert AirthingsWave1().parse(PAYLOAD) == {
-        "radon_sta": 45.0,
-        "radon_lta": 50.0,
+        "radon_sta": 1.22,
+        "radon_lta": 1.35,
         "temperature": 21.5,
         "humidity": 45.0,
     }
+
+
+def test_radon_is_converted_from_bq_per_m3_to_pci_per_l():
+    r = AirthingsWave1().parse(struct.pack("<hHHH", 2150, 4500, 148, 37))
+    assert r["radon_sta"] == 4.0  # the US action level, 148 Bq/m³
+    assert r["radon_lta"] == 1.0
 
 
 def test_negative_temperature():

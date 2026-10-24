@@ -11,11 +11,12 @@ from blemqtt.models import ReadingSpec, Readings
 CHAR_UUIDS = (
     "00002a6e-0000-1000-8000-00805f9b34fb",  # temperature, int16 LE, 0.01 °C
     "00002a6f-0000-1000-8000-00805f9b34fb",  # humidity, uint16 LE, 0.01 %
-    "b42e01aa-ade7-11e4-89d3-123b93f75cba",  # radon, current (24 h), uint16 LE, Bq/m³
-    "b42e0a4c-ade7-11e4-89d3-123b93f75cba",  # radon, long-term average, uint16 LE, Bq/m³
+    "b42e01aa-ade7-11e4-89d3-123b93f75cba",  # radon, current (24 h), uint16 LE, Bq/m³ on the wire
+    "b42e0a4c-ade7-11e4-89d3-123b93f75cba",  # radon, long-term average, uint16 LE, Bq/m³ on the wire
 )
 _FORMAT = struct.Struct("<hHHH")
 _INVALID_RADON = 0xFFFF
+_BQ_PER_M3_PER_PCI_L = 37  # 1 pCi/L = 37 Bq/m³
 
 
 class AirthingsWave1(Driver):
@@ -23,8 +24,8 @@ class AirthingsWave1(Driver):
     manufacturer = "Airthings"
     model = "Wave (Gen 1)"
     readings = (
-        ReadingSpec("radon_sta", "Radon (24 h average)", "Bq/m³", "radon", "mdi:radioactive"),
-        ReadingSpec("radon_lta", "Radon (long-term average)", "Bq/m³", "radon", "mdi:radioactive"),
+        ReadingSpec("radon_sta", "Radon (24 h average)", "pCi/L", "radon", "mdi:radioactive"),
+        ReadingSpec("radon_lta", "Radon (long-term average)", "pCi/L", "radon", "mdi:radioactive"),
         ReadingSpec("temperature", "Temperature", "°C", "temperature"),
         ReadingSpec("humidity", "Humidity", "%", "humidity"),
     )
@@ -51,4 +52,5 @@ class AirthingsWave1(Driver):
 
 
 def _radon(raw: int) -> float | None:
-    return None if raw == _INVALID_RADON else float(raw)
+    """Device reports Bq/m³; Home Assistant here shows pCi/L."""
+    return None if raw == _INVALID_RADON else round(raw / _BQ_PER_M3_PER_PCI_L, 2)

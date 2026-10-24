@@ -1,0 +1,14 @@
+[Unit]
+Description=BLE sensors to MQTT bridge
+After=bluetooth.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documents/projects/bluetooth-reader
+ExecStart=%h/Documents/projects/bluetooth-reader/.venv/bin/blemqtt run
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

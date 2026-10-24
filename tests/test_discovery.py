@@ -43,7 +43,7 @@ def test_radon_message_contents():
     assert m["state_topic"] == "blemqtt/aabbcc001122/state"
     assert m["unit_of_measurement"] == "Bq/m³"
     assert m["state_class"] == "measurement"
-    assert "device_class" not in m
+    assert m["device_class"] == "radon"
 
 
 def test_temperature_device_class():

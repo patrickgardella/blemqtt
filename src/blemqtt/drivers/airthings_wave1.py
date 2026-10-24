@@ -7,8 +7,14 @@ from bleak.exc import BleakError
 from blemqtt.drivers.base import Driver, ParseError, ReadError
 from blemqtt.models import ReadingSpec, Readings
 
-CHAR_UUID = "b42e2a68-ade7-11e4-89d3-123b93f75cba"
-_FORMAT = struct.Struct("<4B8H")
+# Read in this order; parse() takes their raw bytes concatenated in the same order.
+CHAR_UUIDS = (
+    "00002a6e-0000-1000-8000-00805f9b34fb",  # temperature, int16 LE, 0.01 °C
+    "00002a6f-0000-1000-8000-00805f9b34fb",  # humidity, uint16 LE, 0.01 %
+    "b42e01aa-ade7-11e4-89d3-123b93f75cba",  # radon, current (24 h), uint16 LE, Bq/m³
+    "b42e0a4c-ade7-11e4-89d3-123b93f75cba",  # radon, long-term average, uint16 LE, Bq/m³
+)
+_FORMAT = struct.Struct("<hHHH")
 _INVALID_RADON = 0xFFFF
 
 
@@ -17,8 +23,8 @@ class AirthingsWave1(Driver):
     manufacturer = "Airthings"
     model = "Wave (Gen 1)"
     readings = (
-        ReadingSpec("radon_sta", "Radon short-term average", "Bq/m³", None, "mdi:radioactive"),
-        ReadingSpec("radon_lta", "Radon long-term average", "Bq/m³", None, "mdi:radioactive"),
+        ReadingSpec("radon_sta", "Radon (24 h average)", "Bq/m³", "radon", "mdi:radioactive"),
+        ReadingSpec("radon_lta", "Radon (long-term average)", "Bq/m³", "radon", "mdi:radioactive"),
         ReadingSpec("temperature", "Temperature", "°C", "temperature"),
         ReadingSpec("humidity", "Humidity", "%", "humidity"),
     )
@@ -26,23 +32,22 @@ class AirthingsWave1(Driver):
     def parse(self, payload: bytes) -> Readings:
         if len(payload) != _FORMAT.size:
             raise ParseError(f"expected {_FORMAT.size} bytes, got {len(payload)}")
-        version, humidity, _light, _unused, radon_sta, radon_lta, temperature, *_ = _FORMAT.unpack(payload)
-        if version != 1:
-            raise ParseError(f"unsupported payload version {version}")
+        temperature, humidity, radon_sta, radon_lta = _FORMAT.unpack(payload)
         return {
             "radon_sta": _radon(radon_sta),
             "radon_lta": _radon(radon_lta),
             "temperature": temperature / 100,
-            "humidity": humidity / 2,
+            "humidity": humidity / 100,
         }
 
     async def read(self, address: str, timeout: float) -> Readings:
         try:
             async with BleakClient(address, timeout=timeout) as client:
-                payload = await asyncio.wait_for(client.read_gatt_char(CHAR_UUID), timeout)
+                async with asyncio.timeout(timeout):
+                    chunks = [bytes(await client.read_gatt_char(uuid)) for uuid in CHAR_UUIDS]
         except (BleakError, asyncio.TimeoutError, OSError) as e:
             raise ReadError(f"{address}: {e or type(e).__name__}") from e
-        return self.parse(bytes(payload))
+        return self.parse(b"".join(chunks))
 
 
 def _radon(raw: int) -> float | None:
